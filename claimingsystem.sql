@@ -1,61 +1,87 @@
-CREATE DATABASE claimsystem;
-USE claimsystem;
+CREATE DATABASE ClaimSystem;
+USE ClaimSystem;
 
-CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL
+-- Users Table
+CREATE TABLE Users (
+    UserId INT AUTO_INCREMENT PRIMARY KEY,
+    Email VARCHAR(255) NOT NULL UNIQUE,
+    Password VARCHAR(255) NOT NULL -- Renamed for clarity, indicating it's hashed
 );
 
-
-CREATE TABLE lecturer (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    department VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    user_id INT,
-    FOREIGN KEY (user_id) REFERENCES users(id)
+-- Lecturer Table
+CREATE TABLE Lecturers (
+    LecturerId INT AUTO_INCREMENT PRIMARY KEY,
+    FullName VARCHAR(255) NOT NULL, -- Renamed for better readability
+    Department VARCHAR(255) NOT NULL,
+    Email VARCHAR(255) NOT NULL,
+    UserId INT,
+    FOREIGN KEY (UserId) REFERENCES Users(UserId)
 );
 
-CREATE TABLE claims (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    lecturer_id INT,
-    hours_worked DECIMAL(10, 2) NOT NULL,
-    hourly_rate DECIMAL(10, 2) NOT NULL,
-    total_claim DECIMAL(10, 2) NOT NULL,
-    status VARCHAR(50) DEFAULT 'Pending',
-    FOREIGN KEY (lecturer_id) REFERENCES lecturer(id)
+-- Claims Table
+CREATE TABLE Claims (
+    ClaimId INT AUTO_INCREMENT PRIMARY KEY,
+    LecturerId INT,
+    HoursWorked DECIMAL(10, 2) NOT NULL,
+    HourlyRate DECIMAL(10, 2) NOT NULL,
+    TotalClaim DECIMAL(10, 2) AS (HoursWorked * HourlyRate) STORED, -- Calculated column
+    Status ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending', -- ENUM for status
+    RejectionReason VARCHAR(255) DEFAULT NULL, -- Optional rejection reason
+    ClaimMonth VARCHAR(20) NOT NULL,
+    FileName VARCHAR(255),
+    FilePath VARCHAR(255),
+    FOREIGN KEY (LecturerId) REFERENCES Lecturers(LecturerId) -- Assuming 'Lecturers' table exists with 'LecturerId'
 );
 
-ALTER TABLE claims ADD COLUMN rejection_reason VARCHAR(255);
-
-
-CREATE TABLE supporting_documents (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    claim_id INT,
-    file_name VARCHAR(255),
-    file_path VARCHAR(255),
-    FOREIGN KEY (id) REFERENCES claims(id)
+-- Supporting Documents Table
+CREATE TABLE SupportingDocuments (
+    DocumentId INT AUTO_INCREMENT PRIMARY KEY,
+    ClaimId INT,
+    FileName VARCHAR(255),
+    FilePath VARCHAR(255),
+    FOREIGN KEY (ClaimId) REFERENCES Claims(ClaimId) -- Corrected the reference
 );
 
--- Create Admin table
-CREATE TABLE Admin (
+-- Admins Table with Roles
+CREATE TABLE Admins (
     AdminId INT AUTO_INCREMENT PRIMARY KEY,
-    id INT NOT NULL,
-    Role VARCHAR(100),  -- Additional admin-specific role details, if needed
-    FOREIGN KEY (id) REFERENCES Users(id) ON DELETE CASCADE
+    UserId INT NOT NULL, -- Links to the Users table
+    Role ENUM('Program Coordinator', 'Academic Manager', 'HR') NOT NULL, -- Predefined roles
+    FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE
 );
 
 
-ALTER TABLE claims ADD COLUMN month VARCHAR(20) NOT NULL;
+-- Sample Queries
+SELECT * FROM Users;
+SELECT * FROM Admins;
+SELECT * FROM Lecturers;
+SELECT * FROM Claims;
+SELECT * FROM SupportingDocuments;
 
-ALTER TABLE claims
-ADD COLUMN file_name VARCHAR(255),
-ADD COLUMN file_path VARCHAR(255);
+
+SELECT u.UserID, u.Password, a.Role 
+FROM Users u 
+JOIN Admins a ON u.UserID = a.AdminId 
+WHERE u.Email = @Email;
+-- Joining Claims with Lecturer for Summary
+SELECT 
+    c.ClaimId,
+    c.LecturerId,
+    c.HoursWorked,
+    c.HourlyRate,
+    c.TotalClaim,
+    c.Status,
+    c.ClaimMonth,
+    c.FileName AS SupportingDocumentName,
+    c.FilePath AS SupportingDocumentPath,
+    c.RejectionReason,
+    l.FullName AS LecturerName,
+    l.Department AS LecturerDepartment,
+    l.Email AS LecturerEmail
+FROM Claims c
+JOIN Lecturers l ON c.LecturerId = l.LecturerId;
 
 
-select * from users;
-select * from Admin;
-select * from lecturer;
-select * from claims;
-select * from supporting_documents;
+SELECT c.ClaimId, l.FullName, l.Department, c.ClaimMonth, c.HoursWorked, c.HourlyRate, c.TotalClaim, c.Status 
+FROM claims c
+JOIN lecturers l ON c.LecturerId = l.LecturerId;
